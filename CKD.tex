@@ -1,0 +1,682 @@
+\documentclass{article}
+
+% Language setting
+% Replace `english' with e.g. `spanish' to change the document language
+\usepackage[english]{babel}
+\usepackage{kotex}
+% Set page size and margins
+% Replace `letterpaper' with `a4paper' for UK/EU standard size
+% \usepackage[letterpaper,top=2cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper, total={6in, 10in}]{geometry}
+\usepackage{indentfirst}
+\usepackage{authblk}
+\usepackage{lineno}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{comment}
+% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{color}
+
+\title{관성 센서를 기반으로 딥 러닝을 활용한 CKD 환자 분류}
+\author[1,2]{Seok-jue Jeong}
+\author[1,2]{Jeonghwan Koh}
+\author[2]{Sunghan Lee}
+\author[1,2]{Semin Ryu}
+\author[1,2]{In cheol Jeong}
+
+\affil[1]{Department of Artificial Intelligence Conversions, Hallym University, Chuncheon, Gangwon, Republic of Korea}
+\affil[2]{Cerebrovascular Disease Research Center, Hallym University, Chuncheon, Gangwon, Republic of Korea}
+
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+
+
+gait disturbance is impaired in older adults with severe chronic kidney disease (CKD).
+최근 증가하는 노인 인구 수에 따른 신장 질환의 문제성이 두드러지고 있다.
+만성 신장 질환(CKD)의 단계가 심화된 노인들에게는 공통적으로 보행 장애가
+높은 확률로 존재하며, 낙상률 또한 비질환군 보다 높은 추세이다. 그에 따른
+결과로 입원 증가 및 건강 관리의 문제가 중요성을 띠게 되면서 CKD 환자의
+초기 진단 및 모니터링의 필요성이 커지고 있다. 우리의 연구 목적은 이러한
+CKD 질환을 분류하기 위해 의학적 장비 혹은 임상 진단의 방법이 아닌
+일반적인 센서를 통해 CKD 환자들의 보행특성을 조사하고 이를 일반인들과
+비교했을 때, CKD 중증도의 단계를 구별해낼 수 있는지를 평가하고 강조하는
+것이다. 한림대학교 병원 측에서 받은 CKD 중증도 수준이 다른 208명과
+동일한 수의 정상군을 통해 실험을 진행하였으며, 2가지의 보행 실험을 통해
+연구를 진행하였다. 피실험자들의 보행을 분석하기 위해 손목 및 허리에 각
+1개의 IMU 센서를 부착하여 실험을 진행시켰으며, 이를 통해 얻어낸 1D 보행
+데이터를 10초 단위로 자르고, 약 0.25초씩 슬라이딩하여 데이터의 양을 대폭
+늘렸다. 모델 학습 과정에서는 합성곱 신경망(CNN)및 LSTM 사용하여 CKD
+보행을 분류하는 모델로 훈련시켰다. 손목에서 얻어낸 데이터를 가지고
+학습을 한 모델에서는 각 실험에서 평균 73.06\%, 70.40\% 정확도를
+산출하였고, 허리 데이터를 학습한 모델은 86.97\%, 83.25\%의 정확도를
+얻어냈다. 분류 오류의 예상 원인은 데이터의 슬라이딩으로 인한 약간의
+데이터 훼손과 입력 데이터로 사용한 일반 1D 원시 데이터의 특징 부족으로
+확인이 되었다. 하지만 이 연구를 통해 얻은 결과는 IMU센서를 통해 보행을
+분석하고 딥러닝 모델을 통해 CKD의 유무를 확인할 수 있다는 증거를 제공한다.
+\end{abstract}
+
+\section{Introduction}
+
+만성신장질환(CKD)은 사구체여과율(GFR)의 감소나 신장의 구조 혹은 기능의
+이상이 신체에 문제를 발생시키며 3개월 이상 이 현상이 지속되었을 경우를
+말한다. \cite{inker_kdoqi_2014} CKD는 그 중증도에 따라 1단계부터 5단계까지로
+이루어져 있으며 그 단계가 높을수록 사구체 여과율이 낮음을 의미한다.
+\cite{levey_kdoqi_2002} 신장질환은 원인을 몰라도 진단이 가능하다. Work
+Group에 따르면 지속적인 단백뇨는 신장 손상의 주요 지표이다.
+\cite{keane_proteinuria_1999} CKD의 잠재적인 결과는 말기 신장 질환(ESRD)으로, 투석또는 이식 형태의 고가의 신장 대체 요법이 필요하다. \cite{zemp_gait_2019}
+CKD 3기는 일반 인구, 특히 70세 미만의 인구에 비해 심부전 및 사망의
+발생률 증가와 관련이 있다. \cite{eriksen_progression_2006} 이처럼 진행된 CKD단계에서
+보행 장애가 생겨 낙상률이 높은 경우가 대다수다. 만성 신장 질환에 의한
+하지 근육의 이상 발생으로 인해 보행 장애가 생기기도 한다.
+\cite{bohannon_muscle_1994,gordon_association_2012} 그 결과 낙상에 의한 입원 증가, 노인 인구 증가에
+따른 보행 장애 증가로 건강 관리에 대한 더 큰 필요성이 요구된다. 이러한
+점의 원인이 되는 CKD 단계에서 CKD 환자의 보행 특성을 조사하고 이를 먼저
+인식하여 대처할 수 있는 연구의 중요성이 더욱 강조되고 있다.
+
+낙상은 노인 외상의 흔한 원인 중 하나이다. 30세 이상의 지역 사회 거주자
+중 65\% 이상이 1년 동안 적어도 한 번 넘어지고, 몸이 약하거나 장애가 있는
+사람에게서 낙상 발생률이 더 높다. \cite{speechley_falls_1991} 최근 연구에
+따르면, 만성 콩팥병이 있는 65세 이상의 성인은 만성 콩팥병이 없는 같은
+연령대의 성인에 비해 낙상과 낙상 부상의 위험이 더 높았다.
+\cite{kistler_falls_2018} 이는 확실히 이 집단에서 CKD환자에게서 더 높은
+낙상률을 보인다는 것을 설명할 수 있다. 또한 병원에 입원 및 사망한 CKD
+환자들 대상으로 연구 결과 대부분 고관절 골절 발생률이 일반 환자들에 비해
+높음을 확인할 수 있었다.\cite{robertson_hip_2018}
+
+만성 신장 질환(CKD)은 전 세계 인구의 8\%에서 16\%사이에 영향을 미치며
+환자와 임상의가 인식하지 못할 때가 많다.\cite{jha_chronic_2013} 초기 CKD
+환자의 5\% 미만이 자신의 질병에 대한 인식을
+보고한다.\cite{chen_chronic_2019} 만성 신장 질환(CKD)은 일반적으로 혈청 화학
+프로파일 및 소변 검사를 통해 선별 검사를 하고 이를 통한 발견을 통해
+확인할 수 있다. 만성 신장 질환의 초기 단계는 실험실에서의 검사를 통해
+감지할 수 있다. 만성 신장 질환의 초기 단계의 치료는 신부전으로의 진행을
+늦추는 데 효과적이다.\cite{levey_kdoqi_2002} 그러나 보통 CKD는 당뇨병,
+심부전증 등 부수적인 질병의 원인이 되는 질병으로 신체의 불편함을 느끼고
+입원하였을 때는 병의 진행이 많이 되어있을 경우가 만연하다. 그렇기 때문에
+CKD의 초기 단계에서 이를 발견하고 조치를 취하기에는 한계를 가지고 있다.
+
+노인들의 낙상 위험에 대해 평가하기 위해 그들의 보행을 분석하고 특성을
+추출하는 연구는 활발히 이용되고 있다.\cite{merlo_postural_2012} CKD와
+관련해서도 보행 분석을 진행한 문헌에서 보행과 CKD가 밀접한 관계가 있음을
+문헌에서 확인할 수 있다. 일부 문헌에서는 보행 속도의 변화가 만성 신장
+질환의 존재에 영향을 받는다는 가설을 세우고 이를 입증할 수 있다고
+말한다.\cite{bohannon_deficits_1995,painter_physical_2013,abe_determinants_2016} 하지만 이 부분이 CKD가 아닌 당뇨병에
+의해 생기는 문제라는 의견이 존재하기도 한다.\cite{jin_comparison_2017} 확실한
+것은 CKD 환자의 보행 특성과 장애의 진행에 따른 신체의 문제점의 연관성을
+통해 CKD 집단의 낙상 위험도를 정당화할 수 있고, 이를 통해 CKD의
+유무까지도 모니터링 하는데 도움을 줄 수 있다.
+
+근래의 연구에서는 보통 사람의 보행을 분석할 때 용도에 따라 모션 인식
+카메라 혹은 웨어러블 센서 등을 이용하여 진행한다.\cite{tao_gait_2012}
+보행을 통해 질환의 유무를 판단하려면 미세한 떨림과 자세의 불안정성
+정도를 확인하여 결과를 도출해내곤 하는데, 이러한 과정을 거칠 수 있으려면
+매우 고가의 카메라 혹은 장비가 요구된다. 힘 판을 이용한다면 이러한
+고가의 장비 없이 보행 패턴을 확인할 수 있지만, 힘 판은 허벅지, 팔, 허리
+등 보행하였을 때 영향을 받는 부위의 운동학적 정보는 얻어낼 수 없기
+때문에 기계 학습을 통해 이를 분류하면 부정확한 결과를 내보일 가능성이
+있다.\cite{rashid_gait_2019} 관성 측정 센서(IMU)는 보행을 분석하는 연구를
+하는데 접근성이 용이하며 다양한 모듈들과 함께 이용하여 보행 신호를
+추출하고 파악하는데 좋은 퍼포먼스를 보이고 있어 많은 주목을 받고 있다.
+
+관성 측정 장치(IMU)라고도 하는 관성 센서는 자체 1차원 로컬 좌표계에서
+가속도, 각속도 및 자기장 벡터를 측정한다.\cite{noauthor_sensors_nodate} 이
+시스템은 웨어러블 센서로 활용하기 매우 작고 저렴하다. 그 결과
+스마트폰에서 이용하거나 웨어러블 센서로 사용하곤
+하는데\cite{ngo_largest_2014,ngo_similar_2015}, 많은 연구자들은 사용자
+인증\cite{trung_phase_2011}, 보행 분석\cite{tao_gait_2012,rashid_gait_2019,noauthor_sensors_nodate,ngo_largest_2014,ngo_similar_2015}낙상
+감지\cite{noury_fall_2007}, 환자의 재활 치료\cite{cifuentes_development_2012} 및 스포츠
+훈련 지원\cite{cheng_analysis_2008} 등 다양한 분야에서 관성 센서가 사용되고
+있다. 관성 센서의 특징 중 가속도계와 각속도 센서를 통해 보행 속도, 보행
+주기 및 자세 유지, 발 각도 등의 여러 보행 패턴 변화를 감지할 수 있어
+분석에 용이한 도구로 이용할 수 있다.\cite{caramia_imu-based_2018,dehzangi_imu-based_2017,kim_identification_2021}일부 문헌 중
+근육 감소증을 식별하는 연구 과정에서 보행 주기를 신호를 통해 확인하였고
+XAI기술을 통해 보행 매개 변수를 추출하여 이용하였다.\cite{kim_identification_2021}
+또 HD, PS환자들을 건강한 일반인과 분류하기 위해 진행한 실험에서는 IMU
+센서를 5개의 해부학적 위치에 부착하여 보행을
+진행하였다.\cite{mannini_machine_2016} 우리 실험은 CKD의 유무를 두고 보행 특성
+추출 없이 원시 데이터를 이용하였을 때도 활용가능한 정확도를 산출할 수
+있다는 가설을 가지고 임하였다.
+
+관성 센서를 이용하여 실험을 진행하고 인간의 보행 패턴을 찾아내는데 직선
+코스로 걸어가는 실험을 했을 때 가장 좋은 정확도를
+산출하였다.\cite{bohannon_deficits_1995,painter_physical_2013,jin_comparison_2017,caramia_imu-based_2018,dehzangi_imu-based_2017,kim_identification_2021}11개의 연구에서
+피실험자들은 일어나 준비된 상태로 시작을 하였고, 피실험자들이 자신이
+선택한 속도로 보행을 진행하게끔
+하였다.\cite{bohannon_deficits_1995,abe_determinants_2016,painter_physical_2013,jin_comparison_2017,tao_gait_2012,rashid_gait_2019,ngo_similar_2015,caramia_imu-based_2018,dehzangi_imu-based_2017,kim_identification_2021,mannini_machine_2016}또한 최근 연구에서, 웨어러블
+센서의 부착 위치로 관성 측정 센서를 운동학적 정보에 따라
+5\textasciitilde7개의 부위에 부착하였을 때 가장 좋은 정확도를
+산출하였다. \cite{caramia_imu-based_2018,mannini_machine_2016}
+
+보행 분석을 진행하는데 여러 기계학습 방법들이 좋은 성과를 보이고 있다.
+특히 CNN을 이용하여 그 layer의 깊이를 더 깊게 하거나 다른 모델과 섞어서
+쓰는 등 보행 분석 및 분류에서 그 활용 가치는 매우
+높다.\cite{rashid_gait_2019,dehzangi_imu-based_2017,kim_identification_2021,mannini_machine_2016,eskofier_recent_2016,wang_gait_2020} Eskofier\cite{eskofier_recent_2016}는
+AdaBoost, PART, kNN, SVM 및 컨볼루션 신경망(CNN)의 적용을 기반으로 PD를
+분류했으며 CNN이 가장 높은 정확도를 산출했다. Kim\cite{kim_identification_2021}은
+SVM, 랜덤 포레스트, 다층 퍼셉트론 및 딥 러닝 방법을 적용했으며
+근감소증을 분류하는데 SVM이 가장 높은 정확도를 산출하였다. 또다른 일부
+문헌에서는 CNN 학습을 통해 걷기, 서기, 앉기, 눕기, 조깅과 같은 동작을
+분류하였다.\cite{dehzangi_imu-based_2017}
+
+본 연구에서는 다양한 분류 방법 중 딥 러닝 기법을 통해 CKD 환자의 보행
+특성을 학습하여 높은 정확도로 분류하는 알고리즘을 제안한다. 관성 센서를
+통해 평소 타인의 시선 혹은, 자신까지도 인지하기 힘든 보행장애를 그
+사람의 손목과 허리에서의 각속도 및 가속도를 측정해, 이를 원시 데이터로
+추출하여 사용하였다. 우리는 받은 데이터를 입력으로 CNN을 통해 CKD의
+단계가 다양한 환자군과 정상 보행자를 학습시켜 새로운 입력이 들어왔을 때
+이들을 각 class마다 높은 정확도로 구분해낼 수 있다고 가설을 내리고 이의
+타당성을 검증하였다.
+
+\section{Material and Method}
+
+\subsection{장비 수집}
+
+관성측정센서(IMU)는 일반적으로 가속도계와 자이로스코프 센서로 구성된
+장치로 소비자의 필요에 따라 자력계 센서도 포함된다. 우리는 실험 과정에서
+MPU-9250 센서를 이용하였고, 총 9축의 자유도 센서로 구성되있다. 실험 도중
+자력계 센서의 데이터는 보행 신호 분석에 미미한 영향을 끼침이 확인되어
+이를 제외한 총 6축의 데이터만을 분석에 활용하였다.
+
+IMU 센서의 가속도계는 \(\pm\)16g 및 2048 LSB/g의 가속도 범위에서
+가속도를 측정할 수 있다. 자이로스코프 센서를 이용하였을 때는
+\(\pm 500\)g 범위에서 회전 속도를 측정할 수 있다. 센서의 각 축 방향과
+회전 각은 그림1에서 확인할 수 있다.
+
+\begin{figure}
+\centering
+\includegraphics[width=3.86944in,height=2.92153in]{Fig.1.png}
+\caption{\label{Figure.1:}Axes and Angles of Accelerometer and Gyroscope Sensors}
+\end{figure}
+
+\subsection{데이터 수집}
+
+한림성심병원에서 체지방 및 환자의 검체 검사 결과를 근거로 만성 콩팥병의
+척도 및 유무를 확인하여 실험군을 모집하였다. 개인의 CKD 중증도를
+다양하게 보유하고 있는 성인 남녀 208명과 정상인 208명으로부터 보행
+데이터를 수집하였다. 이들 모두의 통계 조사를 실시했으며 자가심리 평가와
+만족도 조사 등 동의 하에 진행하였다.
+
+416명의 피험자들은 두 가지 실험에 임했다. 첫 실험에서는 피 실험자들은
+직선으로 (그림3)10걸음을 걷는 실험에 임하였고, 이를 두 번 진행하였다. 두
+번째 실험에서는 (그림2)3M 타원 보행을 진행하였으며 이를 6번 반복하였다.
+이후 다른 섹션에서의 이해를 돕기 위해 첫 실험을 10s 보행이라는 이름으로,
+두 번째 실험을 ST 실험이라고 정하겠다. 모든 실험에서 피험자들은 왼쪽
+손목과 허리에 관성 센서의 부착을 진행하였고 데이터의 문제가 발생했을 시
+그 데이터는 과감하게 폐기하였다. 실험에서의 사람들은 각각 보행 속도에서
+약간의 차이를 보였지만 다중 분류의 문제가 될 정도의 데이터는 존재하지 않았다.
+
+\begin{figure}
+\centering
+\includegraphics[width=3.86944in,height=2.92153in]{Fig.2.png}
+\caption{\label{Figure.2:}Elliptical Walking: The subject walks straight for 3 meters, makes a turn at the junction, and returns for another 3 meters.}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=4.71319in,height=1.89583in]{Fig.3.png}
+\caption{\label{Figure.3:}10-Step Straight Walking: The subject walks straight for 10 steps and then stops.}
+\end{figure}
+
+최종적으로 두 가지 실험에서 허리와 손목의 센서로부터 보행 데이터를
+얻어냈다. 관성 센서의 샘플링 속도는 50Hz에서 측정되었다.
+
+\subsection{보행 주기 식별}
+
+우리는 원시 데이터의 형태만을 통해 학습을 시켰기 때문에 절대적으로 원시
+데이터의 가치가 높아야 한다. 그렇기 때문에 데이터에 반드시 필요한
+정보로서 보행의 일정한 주기가 내포되어 있어야만 한다. Misu
+등\cite{misu_development_2017}은 힐 스트라이크(HS)를 가속도 신호의 피크 지점
+주기를, 토오프(TO)는 각속도 신호의 피크지점 주기를 기반으로 보행 주기를
+검출하였다. 우리는 원시 데이터의 2D 이미지를 이용해 그래프의 한 주기를
+보행 주기로 인식하였고, 입력 데이터로 들어가는 한 샘플에 이 주기가
+반드시 들어갈 수 있게끔 시간을 조정해 데이터를 형성하였다. (그림4)
+
+\begin{figure}
+\centering
+\includegraphics[width=6.26806in,height=2.63264in]{Fig.4.png}
+\caption{\label{Figure.4:}Input Size for Each Experiment}
+\end{figure}
+
+\subsection{데이터 개수 늘리기}
+
+우리는 두 실험에서 표본의 길이, 즉 보행 주기를 뽑기 위해 보는 시간을
+달리 하여 진행하였는데, 10S 실험은 10걸음의 신호만 담겨있는 데이터기
+때문에 ST실험보다 짧은 데이터로 같은 시간을 보기엔 데이터가 터무니없이
+적었다. 
+(이 부분에 표 혹은 그래프를 활용하여 100,300,500로 샘플링 rate를
+맞추었을 때의 샘플 개수를 나타내어 10S에서는 300Hz를 활용한 것에 대한
+당위성을 제공) 확인해보시고 피드백 해주시면 바로 수정하겠습니다.
+
+그래서 10S 실험에서는 300Hz의 Window size를 입력 데이터로 활용하기로
+하였고, ST 실험에서는 500Hz의 크기만큼 활용하였다. 각각 6초 및 10초의
+시간을 하나의 입력으로 하였을 때 데이터의 정확도는 높일 수 있으나 데이터
+양의 유한성으로 결과의 과적합을 불러일으킬 수 있는 상황이었다. 따라서
+이를 해결하고자 각 입력으로 들어가는 데이터를 약 0.25초씩 뒤로 슬라이딩
+하여 그림5의 형태대로 데이터의 개수를 무작위로 늘릴 수 있도록 하였다.
+
+\begin{figure}
+\centering
+\includegraphics[width=6.26806in,height=1.67083in]{Fig.5.png}
+\caption{\label{Figure.5:}To augment data, apply window sliding in increments of 12 samples.}
+\end{figure}
+
+\subsection{보행 데이터 추출}
+
+만성 콩팥병 환자 208명과 정상 보행자 208명이 두 가지 실험에 참여하여
+각각 2번과 6번씩 진행하였고, 각 실험마다 다른 입력 데이터를 추가로
+12samples씩 슬라이딩 하여 손목과 허리의 데이터를 얻었다. 그림6에서
+보듯이 손목과 허리의 변환 가능한 데이터의 개수가 서로 다른데 이는 각
+데이터에서 미씽 현상이 발생하거나 샘플링이 하나씩 밀려 사용할 수 없는
+데이터를 각 부위에서 제외하였더니 발생한 현상이다. 우리는 실험에서 두
+가지의 부위에서의 발생하는 특징을 사용할 것이기에 더 작은 양의 데이터에
+맞추어 많은 양의 데이터가 나오는 부위에서 무작위로 데이터를 폐기하여
+개수를 맞추었다. 관성 센서의 가속도계 3축, 자이로스코프 3축만을 사용하여
+이들을 분석하였고 모든 데이터는 각 열의 피처 값의 평균을 0으로 잡고
+표준편차를 1로 간주하여 정규화를 진행하였다.
+
+\begin{figure}
+\centering
+\includegraphics[width=6.26806in,height=3.15417in]{Fig.6.png}
+\caption{\label{Figure.6:}Available pedestrian data by body part}
+\end{figure}
+
+이렇게 해서 얻은 데이터를 각 실험에 입력하여 진행시키기 위해 두 실험
+모두 훈련 데이터와 테스트 데이터로 나누기 위해 먼저 개수를 약 4:1의
+비율로 나누었다. 이후 각 데이터의 표본편향을 방지하기 위해 5-Fold 로
+교차 검증을 진행하였다.
+
+\begin{figure}
+\centering
+\includegraphics[width=6.20903in,height=3.8in]{Fig.7.png}
+\caption{\label{Figure.7:}In the experiment, k-Fold cross validation was performed with a 4:1 Train-Test ratio.}
+\end{figure}
+
+그 결과 데이터를 5개로 나누어 각 부분을 훈련 및 검증에 사용하기위해 각각
+나누었다. ST 실험에서는 허리 부위에서 평균 Train set 17000개, Test set
+약 5000개의 4:1 비율로 나누어 실험을 진행하였고, 손목 부위에서는 약
+28000개, 5400개 정도로 나누어 진행하였다. 10S 실험에서는 ST 실험보다
+전체적으로 개수가 적기 때문에 허리 부위에선 평균 Train set 2300개, Test
+set 700개의 정도의 개수 비율로 진행하였고, 손목 부위 또한 Train set
+3400개, Test set 600개 정도로 진행하였다. 각 Fold 당 조금씩 개수 차이는
+존재하였지만, 그 파일 개수가 10개 미만 차이가 나고 4:1의 비율을
+유지하였기 때문에 Fold 당 큰 성능 차이는 보이지 않았다.
+
+\begin{figure}
+\centering
+\includegraphics[width=6.26806in,height=4.17847in]{Fig.8.png}
+\caption{\label{Figure.8:}Experiment-specific data distribution}
+\end{figure}
+
+\subsection{기계학습}
+
+우리는 관성 센서의 신호와 원시 데이터를 사용하고 특징 추출의 기계학습을
+제외한 방법 중 CKD를 식별하는 방법을 탐구했다. CNN-BiLSTM은 감정 분석,
+자연어 처리, 신호 분석 등에서 유용하게 사용되는 딥러닝 방법으로 각각의
+최상의 결과를 산출해내는데 많은 호응을 받고 있다.
+
+CNN은 이미지의 특징을 추출하는 부분과 클래스를 분류하는 부분으로 나눌 수
+있다. 그 중 특징 추출 영역은 하나 이상의 Convolution Layer와 Pooling
+Layer를 여러 층 쌓는 형태로 구성된다. 이후 분류 영역에서 Fully-connected
+신경망에서 입력으로 받은 특징을 바탕으로 분류한다. CNN은 피처맵을
+생성하는 필터까지도 학습이 가능해 비전 분야에서 우수한 평가를 받고 있다.
+
+LSTM은 순차 데이터를 처리하는 데 효과적인 순환 신경망(RNN)의 한 유형으로
+전통적인 RNN과는 다르게 LSTM 유닛은 시퀀스 내에서 장거리 종속성을
+포착하고 그라디언트 소실 문제를 완화하는 데 효과적으로 작동한다. LSTM의
+구조는 시계열 분석, 자연어 처리, 음성 인식과 같은 순차 데이터를 다루는
+작업에 적합하여 적당한 조건 속에서 활용되고 있다.
+
+우리 연구에서는 1D-CNN을 활용하여 센서 데이터에 따른 공간적 특징에서의
+종속성을 확인한 뒤 여기다 Bi-LSTM 레이어를 통합함으로써 순차 정보를
+효과적으로 포착하고 이것이 중요한 순차 정보를 제공하여 연구 목적에 맞는
+결과를 증명해낼 수 있도록 모델을 쌓아 진행하였다.
+
+자세히 살펴보면, 6축의 관성 센서의 데이터 (500,2)의 shape를 모델의
+입력으로 이용하였고, 3번의 Convolution layer를 쌓았으며 각각 Batch
+Normalization을 통해 정규화를 하여 나타냈다. 이후 평균 풀링을 통해 값의
+크기를 반으로 줄여주었다. 이 다음 얻어낸 특징과 BI-LSTM을 통합하여
+최종적 특징 추출을 거친 다음 Dense 층을 활용하여 모델의 깊이를 더해갔고,
+드롭아웃을 주어 과적합을 방지하였다. 분류기로는 다중 분류에 특화된
+softmax를 활용하였다. 모델의 자세한 형태는 그림 7에서 확인할 수 있다.
+\begin{figure}
+\centering
+\includegraphics[width=5.09583in,height=3.71319in]{Fig.9.1.png}
+\includegraphics[width=6.26806in,height=1.69931in]{Fig.9.2.png}
+\caption{\label{Figure.9:}The model architeture based on CNN-LSTM.}
+\end{figure}
+
+\section{Result}
+
+손목 및 허리 부위의 두 가지 실험에서 모두 같은 파라미터와 모델을
+활용하였고, 모델의 Epoch 또한 300번으로 통일하여 진행하였다. 10s 실험은
+ST 보행 실험보다 데이터의 총량이 월등히 적기 때문에 원시 데이터만을
+이용하는 두 가지 실험에선 10S 실험의 정확도가 낮은 부분을 확인할 수
+있었다. 실험 결과는 CKD의 유무와 함께 중증도 별 정확도를 나타내었다.
+
+\subsection{10s 실험}
+
+10s 실험은 인 당 두 번씩 진행하였으며 CNN모델을 통해 정확도 및 여러
+결과들을 시각화 하여 산출하였다.
+
+300번의 Epoch을 주어 정확도를 산출해본 결과, 손목 부위에서 Best
+accuracy로 75.6\%의 정확도를 얻었고 허리 부위에서는 92.47\%의 정확도를
+얻어내었다. 혼동행렬을 통해 확인해본 결과 허리 부위는 매우 분류가 잘
+되는 것으로 확인이 되나 손목 부위에서는 CKD 환자들을 잘 구분하지 못하는
+것을 확인할 수 있었다.
+
+\begin{table}
+\centering
+\begin{tabular}{l|r}
+Point &  & Precision & Recall & F1-score & Support \\\hline
+Hand & \\
+Fold1 & 
+\end{tabular}
+\caption{\label{tab:widgets}An example table.}
+\end{table}
+
+\begin{figure}
+\centering
+\includegraphics[width=6.26806in,height=3.00069in]{Fig.13.png}
+\caption{\label{TABLE 2:}EXPERIMENT RESULTS: BINARY CLASSIFICATION REPORT FOR WAIST POINT IN 10S EXPERIMENT}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[]{Fig.10.png}
+\caption{\label{Figure.10:}In the 10S experiment, normal and CKD patient groups were used as input data, and the confusion matrix represented the proportions for the wrist (left) and waist (right) regions.}
+\end{figure}
+
+추가로 정상 보행자 따로, Class1과 2를 묶고, Class 3,4 마지막으로 5와 6을
+묶어 각 4집단으로 나누어 분류를 진행시켰다. 이를 통해 중증도가 비슷한
+집단간에도 확연히 차이가 나는지에 대한 가설을 해결하고자 하였다.
+
+먼저 300번의 Epoch을 주어 정확도를 산출해본 결과, 손목 부위에서 Best
+accuracy로 75\%의 정확도를 얻었고 허리 부위에서는 75\%의 정확도를
+얻어내었다.
+
+표5,6. 허리와 손목의 10s 실험 4 Class Classification 결과(미완)
+
+\subsection{ST 보행 실험}
+
+ST 보행 실험은 인 당 6번씩 진행하였고, 위와 같은 파라미터 및 형식으로
+실험을 진행하였다.
+
+여러 번의 시도 중 가장 좋은 결과를 도출하였을 때, 손목에 센서를 부착하여
+시도하였을 때는 약 75.22\%의 정확도를 산출하였고, 허리에서 시도하였을 때
+약 90.43\%의 결과를 산출하였다. ST 보행 실험 결과 관련하여 Confusion
+matrix를 뽑은 결과와 그에 대한 세부적인 결과 내용은 표4과 그림 9에서
+확인할 수 있다.
+
+\begin{figure}
+\centering
+\includegraphics[width=6.26806in,height=3.00069in]{Fig.14.png}
+\caption{\label{TABLE 3:}EXPERIMENT RESULTS: BINARY CLASSIFICATION REPORT FOR HAND POINT IN ST EXPERIMENT}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=6.26806in,height=3.00069in]{Fig.15.png}
+\caption{\label{TABLE 4:}EXPERIMENT RESULTS: BINARY CLASSIFICATION REPORT FOR WAIST POINT IN ST EXPERIMENT}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=6.26806in,height=2.97986in]{Fig.11.png}
+\caption{\label{Figure.11:}In the ST experiment, normal and CKD patient groups were used as input data, and the confusion matrix represented the proportions for the wrist (left) and waist (right) regions.}
+\end{figure}
+
+ST 실험에서도 마찬가지로 Multi class classification을 진행하여 결과를
+확인하였다.
+
+먼저 500번의 Epoch을 주어 정확도를 산출해본 결과, 손목 부위에서 Best
+accuracy로 75\%의 정확도를 얻었고 허리 부위에서는 75\%의 정확도를
+얻어내었다.
+
+표9,10. 허리와 손목 부위의 ST 실험 4 Class Classification 결과(미완)
+
+\section{Discussion}
+
+모델의 입력으로 사용한 원시 데이터 같은 경우 다른 통계적, 서술적 보행 파라미터 없이 그대로 이용할 경우 정확도가 뛰어나게 나오기 어렵다.
+Kim{[}15{]}은 근감소증 환자를 정상인과 판별하는데 원시 데이터만을
+이용하여 약 54\%의 정확도를 도출하였다. 만약 보행 파라미터를 검출하여
+주기를 정확하게 계산하고 이를 여러 분류 알고리즘에 대입한다면 매우
+뛰어난 결과가 나올 수 있는 분류 문제임은 어느정도 예상이 가능했지만,
+우리는 이 과정에서 드는 비용과 노력을 거치지 않고도 가능케하였다.
+
+원시 데이터 중 보행 주기를 입력 데이터에 완벽히 존재하려면 데이터의 양이
+매우 적어지고, 이를 슬라이딩으로 밀어 데이터의 수를 증가시키면 보행
+주기가 완벽히 들어가지 못한 데이터가 형성된다. 그렇기 때문에 우리는
+윈도우 슬라이딩을 통해 데이터의 개수를 늘리되 최대한 모든 데이터의
+가치를 잃어버리지 않게끔 시간을 조정하였다. 학습할 데이터에 측정된
+관성센서 기록의 timestamp가 있어야 누락 데이터가 존재할 시
+interpolation이 가능한데 이 부분이 존재하지 않아 우리는 누락 데이터를
+제외시키고 실험을 진행하였다. 하지만 만약 두 부위를 같이 사용하는 Multi
+modal model을 만들어 이용하려면 데이터 타임의 시작과 끝이 일치해야
+학습이 가능하기 때문에 이는 해결이 필요한 부분이다.
+
+최종적으로 Bi-LSTM을 이용하였을 때 최상의 결과가 나왔기 때문에 이 모델을
+채택하였지만, 아직 진행해보지 못한 모델들도 여럿 있었고 원시
+데이터이기에 시계열 데이터에 효과적인 모델들 모두 비슷한 결과를 나타내
+보였다. 특이하게도 10S 실험이 훨씬 더 적은 데이터 양을 가지고 있음에도
+불구하고 비슷한 성능 결과를 나타낸 것을 확인한 것으로 보아 양 차이 보다
+확실히 그 데이터의 질, 즉 허리 부위에서 추출한 데이터가 더 분류해내는데
+의미 있는 내용을 내포하고 있음을 알 수 있었다. 그럼에도 불구하고 보행
+변수를 따로 추출해 분류하는 과정이 아니기 때문에 원시 데이터만을 이용할
+때는 최대한 많은 양의 보행 과정을 추출하는 것이 좋은 결과를 산출해내는데
+많은 도움이 될 것으로 확인된다.
+
+하지만 결과에서 나온 것처럼 손목 부위에서의 정확도는 평균 73\%정도로
+분류에서 좋은 성능이 나타났다고 하기 부족한 부분이 있다. 우리는 이
+부분을 보아 보행에서 나타나는 팔의 스윙은 CKD 환자와 정상 환자를
+구별해내는 데에는 충분한 근거가 내포되어 있지 않음을 확인하였고, 하지
+부분의 영향성에 더 집중할 수 있도록 하였다.
+
+보행 주기를 입력으로 활용할 때 보행을 하는데 확실한 기점이 될 수 있는
+주기를 스텝 별로 확인하여 이를 데이터로 입력하였다면 확실히 데이터의
+가치성이 높아지고, 데이터의 수도 월등히 많아질 수 있기 때문에 비록
+이번엔 보행을 한 그 시계열 데이터를 그대로 이용하여 확인했지만 전자의
+방법으로 시도하여 더 좋은 성능을 얻어낼 수 있을 것이라고 기대된다.
+
+CKD의 모든 단계의 사람 인원 수가 같지 않고 각각 많고 적은 단계가
+형성되어 있었기 때문에 비교적 CKD 0기로 오인하여 결과를 도출할 경우가
+많아 정확도에 악영향을 끼친 경우도 있었다. 이는 각 중증도의 인원수를
+맞게 하여 진행한다면 각 클래스 별 특성에 따라 구별이 가능한 지를 더 의미
+있게 찾을 수 있을 것으로 확인된다.
+
+\section{Conclusion}
+
+인간의 보행을 인식하고 분류하는데 중요한 목표로는 두 보행 종류에서
+차이점을 찾아내어 이를 분석하여 학습시키는 것이다. 현재 만성
+콩팥병이라는 질환의 진단은 병원에서의 정밀 검사를 통해 확인할 수 있는
+상태이다. 우리는 CKD 환자의 보행은 특이점이 존재하여 이들을 병원의
+고가의 장비 없이도 먼저 확인하고 진단할 수 있다고 가설을 두고 이 실험을
+진행 및 평가하였다.
+
+일상 생활에서 CKD로 의한 증상이 발현되기 전 혹은 발현되어 의심될 때
+생기는 보행의 특징을 읽기 위해서는 실용적이여야 하고 일반인들도
+접근하기에 쉬운 특성을 띠고 있어야만 한다. 우리는 이러한 특성을 생각하여
+IMU 센서라는 이미 많은 보행 분석 과정에서 사용되어 그 유용함을 입증 받고
+있는 기기를 이용하였다. 이 실험에서 특히 관성 센서의 신호에는 보행에
+대해 분석 및 예측하는데 충분한 정보와 효율성이 있다는 것을 보여주었다.
+두 가지의 실험에서 우리는 원시 데이터만을 이용하여 딥 러닝 기법을 통해
+최상의 결과를 산출하였다. 원시 데이터만을 이용했을 때 보행 변수를
+사용했을 때보다 정확도는 낮아도 그만큼 고가의 장비 혹은 복잡한 특징 추출
+과정이 없기 때문에 그 실용성은 충분하다. 우리는 데이터를 CKD 환자와 정상
+군들을 먼저 나누어 모델에 학습을 시킨 뒤 진행하였고, CKD 환자의 중증도
+별로 Class를 나누어 정상 군을 포함한 4개의 군집으로 편성하여 분류를
+시도하였다. 최종 결과로는 새로운 데이터셋을 이 모델을 검증하는데
+이용하였다. 그 과정 속에서 2가지 부위에서의 정확도를 확인하였고, 입력
+데이터를 제외하고 다른 부분들은 통일하여 Multi Class classification을
+진행하였을 때 정확도의 차이를 확인하였다. 모델의 선택 과정에서 학습하는
+데의 시간과 분류하는 데의 정확도를 중점으로 선택하게 되었고, 그 결과
+CNN-BiLSTM이 가장 좋은 결과를 도출하였다. 이미 CNN-Bi LSTM 기법은 여러
+분류 기법 쪽에서도 뛰어난 실용성과 유용함이 입증되었기 때문에 CKD를
+판별하는 과정에서도 사용하는 충분한 이유를 보일 수 있었다. 우리는 이를
+이용하여 ST 실험에서 허리 부위에서 평균 약 87\%의 정확도를 산출하여 CKD
+환자의 보행을 분류하는데 충분한 근거를 산출해냈으나 손목에서의 정확도는
+관계성을 증명하기에 미약한 부분이 있음을 확인하였다.
+
+따라서 허리 벨트 등의 의료기기를 이용하여 일상생활에서도 만성 콩팥병의
+유무 및 단계를 확인하고 진단할 수 있다는 점을 확신하였다. 향후에는
+추가적으로 같은 원시 데이터를 받지만 두 부위 혹은 더 많은 부위를 이용한
+멀티 모달 모델을 만들어 이를 이용할 수 있다면 CKD 단계를 분류하는데 가장
+핵심이 되는 부위를 알아내거나 단계에 따른 걸음걸이에서 특이점을 확인할
+수 있을 것으로 기대된다.
+
+\bibliography{related}
+
+\section{Reference}
+
+1. Inker, L. A. \emph{et al.} KDOQI US Commentary on the 2012 KDIGO
+Clinical Practice Guideline for the Evaluation and Management of CKD.
+\emph{Am. J. Kidney Dis.} \textbf{63}, 713--735 (2014).
+
+2. Levey, A. S. \emph{et al.} K/DOQI clinical practice guidelines for
+chronic kidney disease: Evaluation, classification, and stratification.
+\emph{Am. J. Kidney Dis.} \textbf{39}, i-S266 (2002).
+
+3. Keane, W. F. \& Eknoyan, G. Proteinuria, albuminuria, risk,
+assessment, detection, elimination (PARADE): A position paper of the
+National Kidney Foundation. \emph{Am. J. Kidney Dis.} \textbf{33},
+1004--1010 (1999).
+
+4. Zemp, D. D., Giannini, O., Quadri, P. \& de Bruin, E. D. Gait
+characteristics of CKD patients: a systematic review. \emph{BMC
+Nephrol.} \textbf{20}, 83 (2019).
+
+5. Eriksen, B. O. \& Ingebretsen, O. C. The progression of chronic
+kidney disease: A 10-year population-based study of the effects of
+gender and age. \emph{Kidney Int.} \textbf{69}, 375--382 (2006).
+
+6. Gordon, P. L., Doyle, J. W. \& Johansen, K. L. Association of
+1,25-Dihydroxyvitamin D Levels With Physical Performance and Thigh
+Muscle Cross-sectional Area in Chronic Kidney Disease Stage 3 and 4.
+\emph{J. Ren. Nutr.} \textbf{22}, 423--433 (2012).
+
+7. Bohannon, R. W., Hull, D. \& Palmeri, D. Muscle Strength Impairments
+and Gait Performance Deficits in Kidney Transplantation Candidates.
+\emph{Am. J. Kidney Dis.} \textbf{24}, 480--485 (1994).
+
+8. Speechley, M. \& Tinetti, M. Falls and injuries in frail and vigorous
+community elderly persons. \emph{J. Am. Geriatr. Soc.} \textbf{39},
+46--52 (1991).
+
+9. Kistler, B. M., Khubchandani, J., Jakubowicz, G., Wilund, K. \&
+Sosnoff, J. Falls and Fall-Related Injuries Among US Adults Aged 65 or
+Older With Chronic Kidney Disease. \emph{Prev. Chronic. Dis.}
+\textbf{15}, E82 (2018).
+
+10. Robertson, L. \emph{et al.} Hip fracture incidence and mortality in
+chronic kidney disease: the GLOMMS-II record linkage cohort study.
+\emph{BMJ Open} \textbf{8}, e020312 (2018).
+
+11. Jha, V. \emph{et al.} Chronic kidney disease: global dimension and
+perspectives. \emph{The Lancet} \textbf{382}, 260--272 (2013).
+
+12. Chen, T. K., Knicely, D. H. \& Grams, M. E. Chronic Kidney Disease
+Diagnosis and Management. \emph{JAMA} \textbf{322}, 1294--1304 (2019).
+
+13. Merlo, A. \emph{et al.} Postural stability and history of falls in
+cognitively able older adults: The Canton Ticino study. \emph{Gait
+Posture} \textbf{36}, 662--666 (2012).
+
+14. Bohannon, R. W., Smith, J., Hull, D., Palmeri, D. \& Barnhard, R.
+Deficits in lower extremity muscle and gait performance among renal
+transplant candidates. \emph{Arch. Phys. Med. Rehabil.} \textbf{76},
+547--551 (1995).
+
+15. Painter, P. \& Marcus, R. Physical Function and Gait Speed In
+Patients with Chronic Kidney Disease. \emph{Nephrol. Nurs. J.}
+\textbf{40}, 529--38; quiz 539 (2013).
+
+16. Abe, Y. \emph{et al.} Determinants of Slow Walking Speed in
+Ambulatory Patients Undergoing Maintenance Hemodialysis. \emph{PloS One}
+\textbf{11}, e0151037 (2016).
+
+17. Jin, S. H., Park, Y. S., Park, Y. H., Chang, H. J. \& Kim, S. R.
+Comparison of Gait Speed and Peripheral Nerve Function Between Chronic
+Kidney Disease Patients With and Without Diabetes. \emph{Ann. Rehabil.
+Med.} \textbf{41}, 72--79 (2017).
+
+18. Tao, W., Liu, T., Zheng, R. \& Feng, H. Gait Analysis Using Wearable
+Sensors. \emph{Sensors} \textbf{12}, 2255--2283 (2012).
+
+19. Rashid, U., Kumari, N., Taylor, D., David, T. \& Signal, N. Gait
+Event Anomaly Detection and Correction During a Split-Belt Treadmill
+Task. \emph{IEEE Access} \textbf{PP}, (2019).
+
+20. Sensors \textbar{} Free Full-Text \textbar{} IMU-Based Joint Angle
+Measurement for Gait Analysis. https://www.mdpi.com/1424-8220/14/4/6891.
+
+21. Ngo, T. T., Makihara, Y., Nagahara, H., Mukaigawa, Y. \& Yagi, Y.
+The largest inertial sensor-based gait database and performance
+evaluation of gait-based personal authentication. \emph{Pattern
+Recognit.} \textbf{47}, 228--237 (2014).
+
+22. Ngo, T. T., Makihara, Y., Nagahara, H., Mukaigawa, Y. \& Yagi, Y.
+Similar gait action recognition using an inertial sensor. \emph{Pattern
+Recognit.} \textbf{48}, 1289--1301 (2015).
+
+23. Trung, N. T. \emph{et al.} Phase registration in a gallery improving
+gait authentication. in \emph{2011 International Joint Conference on
+Biometrics (IJCB)} 1--7 (2011). doi:10.1109/IJCB.2011.6117527.
+
+24. Noury, N. \emph{et al.} Fall detection - Principles and Methods. in
+\emph{2007 29th Annual International Conference of the IEEE Engineering
+in Medicine and Biology Society} 1663--1666 (2007).
+doi:10.1109/IEMBS.2007.4352627.
+
+25. Cifuentes, C. \emph{et al.} Development of a wearable ZigBee sensor
+system for upper limb rehabilitation robotics. in \emph{2012 4th IEEE
+RAS \& EMBS International Conference on Biomedical Robotics and
+Biomechatronics (BioRob)} 1989--1994 (2012).
+doi:10.1109/BioRob.2012.6290926.
+
+26. Cheng, L. \& Hailes, S. Analysis of Wireless Inertial Sensing for
+Athlete Coaching Support. in \emph{IEEE GLOBECOM 2008 - 2008 IEEE Global
+Telecommunications Conference} 1--5 (2008).
+doi:10.1109/GLOCOM.2008.ECP.1006.
+
+27. Caramia, C. \emph{et al.} IMU-Based Classification of Parkinson's
+Disease From Gait: A Sensitivity Analysis on Sensor Location and Feature
+Selection. \emph{IEEE J. Biomed. Health Inform.} \textbf{22}, 1765--1774
+(2018).
+
+28. Dehzangi, O., Taherisadr, M. \& ChangalVala, R. IMU-Based Gait
+Recognition Using Convolutional Neural Networks and Multi-Sensor Fusion.
+\emph{Sensors} \textbf{17}, 2735 (2017).
+
+29. Kim, J.-K., Bae, M.-N., Lee, K. B. \& Hong, S. G. Identification of
+Patients with Sarcopenia Using Gait Parameters Based on Inertial
+Sensors. \emph{Sensors} \textbf{21}, 1786 (2021).
+
+30. Mannini, A., Trojaniello, D., Cereatti, A. \& Sabatini, A. M. A
+Machine Learning Framework for Gait Classification Using Inertial
+Sensors: Application to Elderly, Post-Stroke and Huntington's Disease
+Patients. \emph{Sensors} \textbf{16}, 134 (2016).
+
+31. Eskofier, B. M. \emph{et al.} Recent machine learning advancements
+in sensor-based mobility analysis: Deep learning for Parkinson's disease
+assessment. in \emph{2016 38th Annual International Conference of the
+IEEE Engineering in Medicine and Biology Society (EMBC)} 655--658
+(2016). doi:10.1109/EMBC.2016.7590787.
+
+32. Wang, X. \& Zhang, J. Gait feature extraction and gait
+classification using two-branch CNN. \emph{Multimed. Tools Appl.}
+\textbf{79}, 2917--2930 (2020).
+
+33. Misu, S. \emph{et al.} Development and validity of methods for the
+estimation of temporal gait parameters from heel-attached inertial
+sensors in younger and older adults. \emph{Gait Posture} \textbf{57},
+295--298 (2017).
+
+
+\end{document}
