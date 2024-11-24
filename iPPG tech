@@ -1,0 +1,167 @@
+# 라이브러리 임포트
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy import signal
+import tensorflow as tf
+import os
+import cv2
+  # 데이터 불러오기 
+file_path = './data/Biopac/EOG_30'  
+file_list = os.listdir(file_path)
+
+
+
+# 결과를 저장할 리스트
+dataframes = []
+
+for filename in file_list:
+    if filename.endswith(".txt"):
+        filepath = os.path.join(file_path, filename)
+
+        # 파일을 읽어서 데이터프레임으로 변환
+        ori_data = pd.read_csv(filepath, delim_whitespace=True, header=None, names=['Sec', 'bio_tri', 'tri', 'hor', 'PPG', 'ver']) 
+        
+        # bio_tri와 tri 열에서 짝수 인덱스만 선택합니다.
+        bio_tri_downsampled = ori_data['bio_tri'][::2].reset_index(drop=True)
+        tri_downsampled = ori_data['tri'][::2].reset_index(drop=True)
+
+        # hor, PPG, ver 데이터를 동일한 시간 간격으로 맞춥니다.
+        hor_downsampled = ori_data['hor'][::2].reset_index(drop=True)
+        PPG_downsampled = ori_data['PPG'][::2].reset_index(drop=True)
+        ver_downsampled = ori_data['ver'][::2].reset_index(drop=True)
+
+        # 결과를 데이터프레임으로 만듭니다.
+        data = pd.DataFrame({
+            'Sec': ori_data['Sec'][::2].reset_index(drop=True),
+            'bio_tri': bio_tri_downsampled,
+            'tri': tri_downsampled,
+            'hor': hor_downsampled,
+            'PPG': PPG_downsampled,
+            'ver': ver_downsampled
+        })
+        
+        # 리스트에 데이터프레임 추가
+        dataframes.append(data)
+# 결과를 확인합니다.
+
+print(len(dataframes))
+        
+sec_list = list(range(1,int(len(dataframes[0])/1000)+1))
+
+start =20
+end = 40
+
+# sample_list = []
+# for i in sec_list:
+#     sample_list.append(1000*i)
+bp_sample_list = []
+for i in sec_list:
+    bp_sample_list.append(1000*i)
+
+
+
+plt.figure(figsize=(20,5))
+plt.plot(dataframes[0]['tri'][start*1000:end*1000])
+plt.xticks(bp_sample_list[start:end], sec_list[start:end])
+plt.grid()
+plt.xlabel('sec')
+plt.ylabel('value')
+plt.title('Tri')
+plt.show()
+
+
+plt.figure(figsize=(20,5))
+plt.plot(dataframes[0]['bio_tri'][start*1000:end*1000])
+plt.xticks(bp_sample_list[start:end], sec_list[start:end])
+plt.grid()
+plt.xlabel('sec')
+plt.ylabel('value')
+plt.title('bio_Tri')
+plt.show()
+  import matplotlib.pyplot as plt
+
+sec_list = list(range(1, int(len(dataframes[0]) / 1000) + 1))
+
+start = 70
+end = 90
+
+bp_sample_list = []
+for i in sec_list:
+    bp_sample_list.append(1000 * i)
+
+# 합쳐진 플롯을 그리기 (첫 번째 데이터는 파랑, 두 번째 데이터는 빨강)
+plt.figure(figsize=(20, 5))
+
+# 첫 번째 데이터 ('tri') 파란색
+plt.plot(dataframes[0]['tri'][start * 1000:end * 1000], color='blue', label='Tri')
+# 두 번째 데이터 ('hor') 빨간색
+plt.plot(dataframes[0]['hor'][start * 1000:end * 1000], color='red', label='Hor')
+
+# X축 눈금 설정
+plt.xticks(bp_sample_list[start:end], sec_list[start:end])
+
+# 그래프 설정
+plt.grid()
+plt.xlabel('sec')
+plt.ylabel('value')
+plt.title('Tri vs Hor')
+plt.legend()  # 범례 추가
+plt.show()
+
+# 두 번째 플롯 (bio_Tri와 ver 데이터)
+plt.figure(figsize=(20, 5))
+
+# 첫 번째 데이터 ('bio_tri') 파란색
+plt.plot(dataframes[0]['bio_tri'][start * 1000:end * 1000], color='blue', label='bio_Tri')
+# 두 번째 데이터 ('ver') 빨간색
+plt.plot(dataframes[0]['ver'][start * 1000:end * 1000], color='red', label='Ver')
+
+# X축 눈금 설정
+plt.xticks(bp_sample_list[start:end], sec_list[start:end])
+
+# 그래프 설정
+plt.grid()
+plt.xlabel('sec')
+plt.ylabel('value')
+plt.title('hor')
+plt.legend()  # 범례 추가
+plt.show()      
+
+          import cv2
+
+# 비디오 파일 경로
+video_path = './data/trim_video/001.MOV'
+
+# 비디오 파일 열기
+cap = cv2.VideoCapture(video_path)
+
+# 고정된 크롭 좌표 (x, y, width, height)
+fixed_x = 230 # x 좌표
+fixed_y = 260 #y 좌표
+fixed_w = 60   # 폭 (width)
+fixed_h = 25   # 높이 (height)
+
+#light
+x_l,y_l = 115,310
+p=10
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break
+    
+    # 크롭할 영역을 사각형으로 표시
+    cv2.rectangle(frame, (fixed_x, fixed_y), (fixed_x + fixed_w, fixed_y + fixed_h), (0, 255, 0), 2)
+    cv2.rectangle(frame, (x_l, y_l), (x_l + p, y_l + p), (0, 255, 0), 1)  # Light 좌표
+
+    # 표시된 프레임을 화면에 출력
+    cv2.imshow('Cropped Area', frame)
+    
+    # 키 입력 대기 (0.03초)
+    if cv2.waitKey(30) & 0xFF == ord('q'):
+        break
+
+# 모든 작업이 완료되면 비디오 캡처 객체 해제
+cap.release()
+cv2.destroyAllWindows()
